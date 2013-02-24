@@ -4,13 +4,16 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>CS5300 Project 1</title>
+<link rel="stylesheet" type="text/css" href="styles/style.css" />
+  <title>CS5300 Project 1</title>
 </head>
 <body>
-  <h1>Hello, User!</h1>
-  <form name="replace" method="get" action="MainServlet">
+  <h2>Hello, User!</h2>
+  <form name="SelectAction" method="get" action="MainServlet">
     <input type="submit" name="command" value="Replace">
-    <input type="text" name="replaceText" size=40 maxlength=512>
+    <input type="text" name="replaceText" size=40 maxlength=512><br />
+    <input type="submit" name="command" value="Refresh"><br />
+    <input type="submit" name="command" value="LogOut">
   </form>
 </body>
 </html>
