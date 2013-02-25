@@ -74,28 +74,37 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
-		} else { // Get the session from the cookie, if it exists
+		} else { // Else get the session from the cookie, if it exists
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
 		}
 		
-		
+		System.out.println(curState.toString());
 
 		String command = request.getParameter("command");
 		if (command != null) {
 			if (command.equals("LogOut")) {
-				out.println("LOGGED OUT");
+				if (userCookie != null) {
+					sessionData.remove(sessionID);
+					userCookie.setMaxAge(0);
+				}
 			} else if (command.equals("Replace")) {
 				message = request.getParameter("replaceText");
 			} else {
 				out.println("REFRESH SESSION");
 			}
 		}
-		
+
 		request.setAttribute("message", message);
-		response.addCookie(userCookie);
-		request.getRequestDispatcher("/index.jsp").forward(request, response);		
+		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
+		if (userCookie != null) response.addCookie(userCookie);
+		
+		if (command != null && command.equals("LogOut")) {
+			request.getRequestDispatcher("/logout.jsp").forward(request,response);
+		} else {
+		request.getRequestDispatcher("/index.jsp").forward(request, response);
+		}
 	}
 
 	/**

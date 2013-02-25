@@ -15,5 +15,9 @@
     <input type="submit" name="command" value="Refresh"><br />
     <input type="submit" name="command" value="LogOut">
   </form>
+  <h3>Expires: <% if (request.getAttribute("expires") != null) { %>
+  			   <%= request.getAttribute("expires") %>
+  			   <% } %>  
+  </h3>
 </body>
 </html>
