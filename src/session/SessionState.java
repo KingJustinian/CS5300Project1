@@ -15,7 +15,7 @@ public class SessionState {
 		setMessage(m);
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
-		expirationTime.setTime(curTime.getTime() + 60*60*100); // Set the expiration time to one hour in the future		
+		expirationTime = new Timestamp(curTime.getTime() + 60*60*1000); // Set the expiration time to one hour in the future		
 	}
 
 	public String getSessionID() {
@@ -42,8 +42,16 @@ public class SessionState {
 		this.message = message;
 	}
 	
-	@SuppressWarnings("unused")
-	private Timestamp getExpirationTime() {
+	public Timestamp getExpirationTime() {
 		return expirationTime;
+	}
+	
+	public void incrementVersion() {
+		versionNumber++;
+	}
+	
+	public String toString() {
+		return "ID: " + getSessionID() + " Version: " + getVersionNumber() + 
+				" Message: " + getMessage() + " Expires: " + getExpirationTime();
 	}
 }

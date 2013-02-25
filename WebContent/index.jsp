@@ -8,7 +8,7 @@
   <title>CS5300 Project 1</title>
 </head>
 <body>
-  <h2>Hello, User!</h2>
+  <h2><%= request.getAttribute("message") %></h2>
   <form name="SelectAction" method="get" action="MainServlet">
     <input type="submit" name="command" value="Replace">
     <input type="text" name="replaceText" size=40 maxlength=512><br />
