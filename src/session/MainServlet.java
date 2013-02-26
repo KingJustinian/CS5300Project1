@@ -25,12 +25,11 @@ public class MainServlet extends HttpServlet {
 	ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
     
     // Determine if a session exists already based on if the session ID stored is valid
-	private boolean sessionExists(String sessionID) {
-		return ((sessionID != null) || (sessionData.get(sessionID) != null) 
-				|| (sessionData.get(sessionID).getExpirationTime().before(new Timestamp((new Date()).getTime()))));
+	private boolean invalidState(SessionState st) {
+		return (st == null || st.getExpirationTime().before((new Timestamp(new Date().getTime()))));
 	}
 	
-	// Create a new session in the hashmap and return a cookie with the sessionID and version number
+	// Create a new session in the HashMap and return a cookie with the sessionID and version number
 	private Cookie createSession(String message) {
 		String sessionID = UUID.randomUUID().toString();
 		int version = 0;
@@ -51,12 +50,13 @@ public class MainServlet extends HttpServlet {
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		PrintWriter out = response.getWriter();
+		//PrintWriter out = response.getWriter();
 		
 		Cookie userCookie = null;
 		String message = "Welcome!";
 		String sessionID = null;
 		SessionState curState = null;
+		boolean previousUser = false; // Determines if the user is returning with a valid cookie/session
 		
 		// If the cookie already exists then retrieve it and store it into userCookie
 		Cookie[] cookies = request.getCookies();
@@ -71,6 +71,7 @@ public class MainServlet extends HttpServlet {
 		// Create a new session if there wasn't a cookie
 		if (userCookie == null) {
 			userCookie = createSession(message);
+			userCookie.setMaxAge(60*60); // One hour from now (in seconds)
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
@@ -78,19 +79,22 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
+			previousUser = true;
 			// The case when a cookie exists for a session but when the session identified doesn't
-			// exist in the hashmap (i.e. restarting the program when and the client still has
-			// a cookie from before
-			if (curState == null) {
+			// exist in the HashMap (i.e. restarting the program when and the client still has
+			// a cookie from before. Or if the session has expired
+			if (invalidState(curState)) { 
 				userCookie = createSession(message);
+				userCookie.setMaxAge(60*60); // One hour from now (in seconds)
 				String temp2[] = userCookie.getValue().split("\\^");
 				sessionID = temp2[0];
-				curState = sessionData.get(sessionID);	
+				curState = sessionData.get(sessionID);
+				previousUser = false;
 			}
 		} 
 		
-		System.out.println(curState.toString());
 		String command = request.getParameter("command");
+		// Update the session/cookie appropriately depending on the command (or lack of command if a returning user)
 		if (command != null) {
 			if (command.equals("LogOut")) {
 				if (userCookie != null) {
@@ -99,11 +103,30 @@ public class MainServlet extends HttpServlet {
 				}
 			} else if (command.equals("Replace")) {
 				message = request.getParameter("replaceText");
-			} else {
-				out.println("REFRESH SESSION");
+			} else { // Refresh command
+				// Update the session data and cookie
+				curState.incrementVersion();
+				curState.setNewExpirationTime();
+				sessionData.put(sessionID, curState);
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie.setMaxAge(60*60);
+			}
+		} else {
+			// When there was no command and the user is returning with a valid session, the 
+			// version number/expiration time still need to be incremented accordingly since EVERY
+			// request must update the version number (essentially a refresh command) 
+			if (previousUser) {
+				// Update the session data and cookie
+				curState.incrementVersion();
+				curState.setNewExpirationTime();
+				sessionData.put(sessionID, curState);
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie.setMaxAge(60*60);
 			}
 		}
 
+		//System.out.println(curState.toString());
+		
 		request.setAttribute("message", message);
 		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
 		request.setAttribute("serverAddr", request.getServerName());

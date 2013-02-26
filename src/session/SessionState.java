@@ -46,6 +46,12 @@ public class SessionState {
 		return expirationTime;
 	}
 	
+	public void setNewExpirationTime() {
+		Date date = new Date();
+		Timestamp curTime = new Timestamp(date.getTime());
+		expirationTime = new Timestamp(curTime.getTime() + 60*60*1000);
+	}
+	
 	public void incrementVersion() {
 		versionNumber++;
 	}
