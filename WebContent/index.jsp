@@ -15,6 +15,7 @@
     <input type="submit" name="command" value="Refresh"><br />
     <input type="submit" name="command" value="LogOut">
   </form>
+  <h3>Session on <%= request.getAttribute("serverAddr") + ":" + request.getAttribute("serverPort") %></h3>
   <h3>Expires: <% if (request.getAttribute("expires") != null) { %>
   			   <%= request.getAttribute("expires") %>
   			   <% } %>  

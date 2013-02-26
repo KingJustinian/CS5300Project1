@@ -68,7 +68,7 @@ public class MainServlet extends HttpServlet {
 			}
 		}
 
-		// Create a new session if one wasn't obtained from the cookie
+		// Create a new session if there wasn't a cookie
 		if (userCookie == null) {
 			userCookie = createSession(message);
 			String temp[] = userCookie.getValue().split("\\^");
@@ -78,10 +78,18 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
-		}
+			// The case when a cookie exists for a session but when the session identified doesn't
+			// exist in the hashmap (i.e. restarting the program when and the client still has
+			// a cookie from before
+			if (curState == null) {
+				userCookie = createSession(message);
+				String temp2[] = userCookie.getValue().split("\\^");
+				sessionID = temp2[0];
+				curState = sessionData.get(sessionID);	
+			}
+		} 
 		
 		System.out.println(curState.toString());
-
 		String command = request.getParameter("command");
 		if (command != null) {
 			if (command.equals("LogOut")) {
@@ -98,6 +106,9 @@ public class MainServlet extends HttpServlet {
 
 		request.setAttribute("message", message);
 		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
+		request.setAttribute("serverAddr", request.getServerName());
+		request.setAttribute("serverPort", request.getServerPort());
+		
 		if (userCookie != null) response.addCookie(userCookie);
 		
 		if (command != null && command.equals("LogOut")) {
