@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Date;
 import java.util.UUID;
+import java.util.Timer;
 import java.sql.Timestamp;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,9 +22,14 @@ import javax.servlet.http.HttpServletResponse;
 public class MainServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private static String cookieName = "CS5300PROJ1SESSION";
-	
-	ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
+	protected static final Integer sessionTimeout = 300;
+	protected static final Integer cleanerInterval = 60;
+	protected static final ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
     
+	protected static final SessionCleaner sessionCleaner = new SessionCleaner();
+	protected static final Timer cleanTimer = new Timer();
+	
+	
     // Determine if a session exists already based on if the session ID stored is valid
 	private boolean invalidState(SessionState st) {
 		return (st == null || st.getExpirationTime().before((new Timestamp(new Date().getTime()))));
@@ -43,7 +49,7 @@ public class MainServlet extends HttpServlet {
      */
     public MainServlet() {
         super();
-        // TODO Auto-generated constructor stub
+        cleanTimer.schedule(sessionCleaner, cleanerInterval*1000, cleanerInterval*1000);
     }
 
 	/**
@@ -71,7 +77,7 @@ public class MainServlet extends HttpServlet {
 		// Create a new session if there wasn't a cookie
 		if (userCookie == null) {
 			userCookie = createSession(message);
-			userCookie.setMaxAge(60*60); // One hour from now (in seconds)
+			userCookie.setMaxAge(60); // One hour from now (in seconds)
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
@@ -85,7 +91,7 @@ public class MainServlet extends HttpServlet {
 			// a cookie from before. Or if the session has expired
 			if (invalidState(curState)) { 
 				userCookie = createSession(message);
-				userCookie.setMaxAge(60*60); // One hour from now (in seconds)
+				userCookie.setMaxAge(60); // One hour from now (in seconds)
 				String temp2[] = userCookie.getValue().split("\\^");
 				sessionID = temp2[0];
 				curState = sessionData.get(sessionID);
@@ -103,13 +109,19 @@ public class MainServlet extends HttpServlet {
 				}
 			} else if (command.equals("Replace")) {
 				message = request.getParameter("replaceText");
+				curState.setMessage(message);
+				curState.incrementVersion();
+				curState.setNewExpirationTime();
+				sessionData.put(sessionID, curState);
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie.setMaxAge(60);
 			} else { // Refresh command
 				// Update the session data and cookie
 				curState.incrementVersion();
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
-				userCookie.setMaxAge(60*60);
+				userCookie.setMaxAge(60);
 			}
 		} else {
 			// When there was no command and the user is returning with a valid session, the 
@@ -121,16 +133,19 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
-				userCookie.setMaxAge(60*60);
+				userCookie.setMaxAge(60);
 			}
 		}
-
-		//System.out.println(curState.toString());
+	
+		message = curState.getMessage();
 		
+		System.out.println(curState.toString());
+		System.out.println(message);
 		request.setAttribute("message", message);
 		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
-		request.setAttribute("serverAddr", request.getServerName());
-		request.setAttribute("serverPort", request.getServerPort());
+		request.setAttribute("serverAddr", request.getLocalAddr());
+		request.setAttribute("serverPort", request.getLocalPort());
+		request.setAttribute("vNum", curState.getVersionNumber());
 		
 		if (userCookie != null) response.addCookie(userCookie);
 		

@@ -15,7 +15,7 @@ public class SessionState {
 		setMessage(m);
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
-		expirationTime = new Timestamp(curTime.getTime() + 60*60*1000); // Set the expiration time to one hour in the future		
+		expirationTime = new Timestamp(curTime.getTime() + 60*1000); // Set the expiration time to one hour in the future		
 	}
 
 	public String getSessionID() {
@@ -49,7 +49,7 @@ public class SessionState {
 	public void setNewExpirationTime() {
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
-		expirationTime = new Timestamp(curTime.getTime() + 60*60*1000);
+		expirationTime = new Timestamp(curTime.getTime() + 60*1000);
 	}
 	
 	public void incrementVersion() {

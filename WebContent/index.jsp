@@ -20,5 +20,7 @@
   			   <%= request.getAttribute("expires") %>
   			   <% } %>  
   </h3>
+  
+  <h3>Version Number: <%= request.getAttribute("vNum") %></h3>
 </body>
 </html>
