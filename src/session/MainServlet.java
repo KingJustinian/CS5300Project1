@@ -2,6 +2,7 @@ package session;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.util.Date;
 import java.util.UUID;
 import java.util.Timer;
@@ -15,20 +16,33 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import rpc.RPCServer;
+
+
 /**
  * Servlet implementation class MainServlet
  */
 @WebServlet("/MainServlet")
 public class MainServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
+	
+	private String serverIP;
+	private int serverPort;
+	private String IPP_local;
+	
+	public static String IPP_NULL = "0.0.0.0";
+	
+	private int last_sess_num = 0;
+	
 	private static String cookieName = "CS5300PROJ1SESSION";
-	protected static final Integer sessionTimeout = 300;
+	protected static final Integer SESSION_TIMEOUT_SECS = 60;
 	protected static final Integer cleanerInterval = 60;
 	protected static final ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
     
 	protected static final SessionCleaner sessionCleaner = new SessionCleaner();
 	protected static final Timer cleanTimer = new Timer();
 	
+	public RPCServer rServer = new RPCServer(this);
 	
     // Determine if a session exists already based on if the session ID stored is valid
 	private boolean invalidState(SessionState st) {
@@ -37,19 +51,27 @@ public class MainServlet extends HttpServlet {
 	
 	// Create a new session in the HashMap and return a cookie with the sessionID and version number
 	private Cookie createSession(String message) {
-		String sessionID = UUID.randomUUID().toString();
+		int sID = last_sess_num++;
 		int version = 0;
-		SessionState st = new SessionState(sessionID, version, message);
-		sessionData.put(sessionID, st);
-		return (new Cookie(cookieName, sessionID + "^" + version));
+		SessionState st = new SessionState(sID, serverIP, serverPort, version, message);
+		sessionData.put(st.getSessionID(), st);
+		return (new Cookie(cookieName, st.getSessionID() + "^" + version));
 	}
 	
-    /**
-     * @see HttpServlet#HttpServlet()
-     */
+
+	// Start the garbage collection and the RPCServer which begins the program essentially
     public MainServlet() {
         super();
         cleanTimer.schedule(sessionCleaner, cleanerInterval*1000, cleanerInterval*1000);
+        try {
+        	serverIP = InetAddress.getLocalHost().getHostAddress();
+        	serverPort = rServer.getServerPort();
+            new Thread(rServer).start();       	
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+
+
     }
 
 	/**
@@ -77,7 +99,7 @@ public class MainServlet extends HttpServlet {
 		// Create a new session if there wasn't a cookie
 		if (userCookie == null) {
 			userCookie = createSession(message);
-			userCookie.setMaxAge(60); // One hour from now (in seconds)
+			userCookie.setMaxAge(SESSION_TIMEOUT_SECS); 
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
@@ -91,7 +113,7 @@ public class MainServlet extends HttpServlet {
 			// a cookie from before. Or if the session has expired
 			if (invalidState(curState)) { 
 				userCookie = createSession(message);
-				userCookie.setMaxAge(60); // One hour from now (in seconds)
+				userCookie.setMaxAge(SESSION_TIMEOUT_SECS); 
 				String temp2[] = userCookie.getValue().split("\\^");
 				sessionID = temp2[0];
 				curState = sessionData.get(sessionID);
@@ -114,14 +136,14 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
-				userCookie.setMaxAge(60);
+				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			} else { // Refresh command
 				// Update the session data and cookie
 				curState.incrementVersion();
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
-				userCookie.setMaxAge(60);
+				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		} else {
 			// When there was no command and the user is returning with a valid session, the 
@@ -133,18 +155,21 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
-				userCookie.setMaxAge(60);
+				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		}
 	
 		message = curState.getMessage();
 		
 		System.out.println(curState.toString());
-		System.out.println(message);
+		System.out.println(userCookie.getValue());
+		
 		request.setAttribute("message", message);
 		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
-		request.setAttribute("serverAddr", request.getLocalAddr());
-		request.setAttribute("serverPort", request.getLocalPort());
+		//request.setAttribute("serverAddr", request.getLocalAddr());
+		//request.setAttribute("serverPort", request.getLocalPort());
+		request.setAttribute("serverAddr", serverIP);
+	    request.setAttribute("serverPort", serverPort);
 		request.setAttribute("vNum", curState.getVersionNumber());
 		
 		if (userCookie != null) response.addCookie(userCookie);

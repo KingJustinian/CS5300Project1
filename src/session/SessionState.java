@@ -9,13 +9,14 @@ public class SessionState {
 	private String message;
 	private Timestamp expirationTime;
 	
-	public SessionState(String s, int v, String m) {
-		setSessionID(s);
+	public SessionState(int sNum, String sIP, int sPort, int v, String m) {
+		String tempID = Integer.toString(sNum) + "_" + sIP + "_" + Integer.toString(sPort);
+		setSessionID(tempID);
 		setVersionNumber(v);
 		setMessage(m);
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
-		expirationTime = new Timestamp(curTime.getTime() + 60*1000); // Set the expiration time to one hour in the future		
+		expirationTime = new Timestamp(curTime.getTime() + MainServlet.SESSION_TIMEOUT_SECS*1000); 	
 	}
 
 	public String getSessionID() {
@@ -49,7 +50,7 @@ public class SessionState {
 	public void setNewExpirationTime() {
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
-		expirationTime = new Timestamp(curTime.getTime() + 60*1000);
+		expirationTime = new Timestamp(curTime.getTime() + MainServlet.SESSION_TIMEOUT_SECS*1000);
 	}
 	
 	public void incrementVersion() {
