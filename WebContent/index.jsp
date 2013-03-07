@@ -15,12 +15,10 @@
     <input type="submit" name="command" value="Refresh"><br />
     <input type="submit" name="command" value="LogOut">
   </form>
-  <h3>Server ID: <%= request.getAttribute("serverAddr") + ":" + request.getAttribute("serverPort") %></h3>
-  <h3>Expires: <% if (request.getAttribute("expires") != null) { %>
-  			   <%= request.getAttribute("expires") %>
-  			   <% } %>  
-  </h3>
-  
+  <h3>Server ID executing the client request: <%= request.getAttribute("serverAddr") + ":" + request.getAttribute("serverPort") %></h3>
+  <h3>Discard Time: <%= request.getAttribute("Discard_Time") %></h3>
+  <h3>Expiration Time: <%= request.getAttribute("Expires") %></h3>
   <h3>Version Number: <%= request.getAttribute("vNum") %></h3>
+  <h3>IPP Primary: <%= request.getAttribute("IPPPrimary") %></h3>
 </body>
 </html>

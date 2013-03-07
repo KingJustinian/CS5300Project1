@@ -18,6 +18,15 @@ public class SessionState {
 		Timestamp curTime = new Timestamp(date.getTime());
 		expirationTime = new Timestamp(curTime.getTime() + MainServlet.SESSION_TIMEOUT_SECS*1000); 	
 	}
+	
+	public SessionState(String sID, int v, String m) {
+		setSessionID(sID);
+		setVersionNumber(v);
+		setMessage(m);
+		Date date = new Date();
+		Timestamp curTime = new Timestamp(date.getTime());
+		expirationTime = new Timestamp(curTime.getTime() + MainServlet.SESSION_TIMEOUT_SECS*1000); 	
+	}
 
 	public String getSessionID() {
 		return sessionID;
@@ -51,6 +60,10 @@ public class SessionState {
 		Date date = new Date();
 		Timestamp curTime = new Timestamp(date.getTime());
 		expirationTime = new Timestamp(curTime.getTime() + MainServlet.SESSION_TIMEOUT_SECS*1000);
+	}
+	
+	public void setNewExpirationTime(String t) {
+		expirationTime = Timestamp.valueOf(t);
 	}
 	
 	public void incrementVersion() {

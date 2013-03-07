@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import rpc.RPCClient;
 import rpc.RPCServer;
 
 
@@ -28,7 +29,6 @@ public class MainServlet extends HttpServlet {
 	
 	private String serverIP;
 	private int serverPort;
-	private String IPP_local;
 	
 	public static String IPP_NULL = "0.0.0.0";
 	
@@ -37,7 +37,7 @@ public class MainServlet extends HttpServlet {
 	private static String cookieName = "CS5300PROJ1SESSION";
 	protected static final Integer SESSION_TIMEOUT_SECS = 60;
 	protected static final Integer cleanerInterval = 60;
-	protected static final ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
+	public static ConcurrentHashMap<String, SessionState> sessionData = new ConcurrentHashMap<String, SessionState>();
     
 	protected static final SessionCleaner sessionCleaner = new SessionCleaner();
 	protected static final Timer cleanTimer = new Timer();
@@ -55,7 +55,7 @@ public class MainServlet extends HttpServlet {
 		int version = 0;
 		SessionState st = new SessionState(sID, serverIP, serverPort, version, message);
 		sessionData.put(st.getSessionID(), st);
-		return (new Cookie(cookieName, st.getSessionID() + "^" + version));
+		return (new Cookie(cookieName, st.getSessionID() + "^" + version + "^" + serverIP + "_" + serverPort));
 	}
 	
 
@@ -66,7 +66,10 @@ public class MainServlet extends HttpServlet {
         try {
         	serverIP = InetAddress.getLocalHost().getHostAddress();
         	serverPort = rServer.getServerPort();
-            new Thread(rServer).start();       	
+            new Thread(rServer).start();    
+            
+            // Test RPCClient probe function
+            //System.out.println(RPCClient.probe(serverIP, serverPort));
         } catch (Exception e) {
         	e.printStackTrace();
         }
@@ -135,14 +138,16 @@ public class MainServlet extends HttpServlet {
 				curState.incrementVersion();
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
-				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber() 
+						+ "^" + serverIP + "_" + serverPort);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			} else { // Refresh command
 				// Update the session data and cookie
 				curState.incrementVersion();
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
-				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
+						+ "^" + serverIP + "_" + serverPort);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		} else {
@@ -154,7 +159,8 @@ public class MainServlet extends HttpServlet {
 				curState.incrementVersion();
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
-				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber());
+				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
+						+ "^" + serverIP + "_" + serverPort);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		}
@@ -164,12 +170,23 @@ public class MainServlet extends HttpServlet {
 		System.out.println(curState.toString());
 		System.out.println(userCookie.getValue());
 		
+		// Code for testing sessionread in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
+		/*SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
+				curState.getVersionNumber(), serverIP, serverPort);
+		System.out.println("Test read state: " + testReadState.toString());*/
+		
+		
 		request.setAttribute("message", message);
-		if (curState != null) request.setAttribute("expires", curState.getExpirationTime());
+		if (curState != null) request.setAttribute("Discard_Time", curState.getExpirationTime());
+		request.setAttribute("Expires", userCookie.getMaxAge());
 		//request.setAttribute("serverAddr", request.getLocalAddr());
 		//request.setAttribute("serverPort", request.getLocalPort());
 		request.setAttribute("serverAddr", serverIP);
 	    request.setAttribute("serverPort", serverPort);
+	    
+	    String[] tempP = userCookie.getValue().split("\\^")[2].split("_");
+	    String IPPPrimary = tempP[0] + ":" + tempP[1];
+	    request.setAttribute("IPPPrimary", IPPPrimary);
 		request.setAttribute("vNum", curState.getVersionNumber());
 		
 		if (userCookie != null) response.addCookie(userCookie);
