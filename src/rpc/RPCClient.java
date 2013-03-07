@@ -7,11 +7,13 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.util.UUID;
 
@@ -19,8 +21,10 @@ import session.SessionState;
 
 public class RPCClient {
 	
-	public final static int PROBE_CODE = 0;
+	public static final int PROBE_CODE = 0;
 	public static final int SESSIONREAD_CODE = 1;
+	public static final int SESSIONWRITE_CODE = 2;
+	public static final int SESSIONDELETE_CODE = 3;
 
 	// A request to simply check if a server is running
 	public static boolean probe(String ip, int port) {
@@ -99,6 +103,7 @@ public class RPCClient {
 					
 				} while (response == null || !(response.split("\\^")[0].equals(callID)));
 			} catch (IOException e) {
+				e.printStackTrace();
 				return null;
 			} 
 			
@@ -110,6 +115,86 @@ public class RPCClient {
 		}
 
 	}
+	
+	public static boolean sessionWrite(SessionState session, String ip, int port) {
+		try {
+			DatagramSocket RPCSocket = new DatagramSocket();
+			RPCSocket.setSoTimeout(1000);
+			
+			String callID = UUID.randomUUID().toString(); // A unique id for this call
+
+			String tempSend = callID + "^" + SESSIONWRITE_CODE + "^" + session.getSessionID() + "^" + session.getVersionNumber()
+					+ "^" + URLEncoder.encode(session.getMessage(), "UTF-8") + "^" + session.getExpirationTime().toString();
+			byte[] outBuffer = marshal(tempSend);
+			DatagramPacket sendPacket = new DatagramPacket(outBuffer, outBuffer.length, InetAddress.getByName(ip), port);
+
+			RPCSocket.send(sendPacket);
+			
+			// The packet has been sent, now wait for the server to reply
+
+			byte[] inBuffer = new byte[4096];
+			DatagramPacket receivedPacket = new DatagramPacket(inBuffer, inBuffer.length);
+			
+			do {
+				receivedPacket.setLength(inBuffer.length);
+				RPCSocket.receive(receivedPacket);
+			} while (!(RPCClient.unmarshal(receivedPacket.getData())).split("\\^")[0].equals(callID));
+			
+		} catch (SocketException e) {
+			e.printStackTrace();
+			return false;
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+			return false;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+		// Everything executed without error
+		return true;
+	}
+	
+	
+	public static boolean sessionDelete(String sessionID, int versionNum, String ip, int port) {
+		try {
+			DatagramSocket RPCSocket = new DatagramSocket();
+			RPCSocket.setSoTimeout(1000);
+			
+			String callID = UUID.randomUUID().toString(); // A unique id for this call
+			
+			String tempSend = callID + "^" + SESSIONDELETE_CODE + "^" + sessionID + "^" + versionNum;
+			byte[] outBuffer = marshal(tempSend);
+			
+			DatagramPacket sendPacket = new DatagramPacket(outBuffer, outBuffer.length, InetAddress.getByName(ip), port);
+			RPCSocket.send(sendPacket);
+			
+			// The packet has been sent, now wait for the server to reply
+			
+			byte[] inBuffer = new byte[4096];
+			DatagramPacket receivedPacket = new DatagramPacket(inBuffer, inBuffer.length);
+			
+			do {
+				receivedPacket.setLength(inBuffer.length);
+				RPCSocket.receive(receivedPacket);
+			} while (!(RPCClient.unmarshal(receivedPacket.getData())).split("\\^")[0].equals(callID));
+			
+		} catch (SocketException e) {
+			e.printStackTrace();
+			return false;
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+			return false;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
+		// Everything executed without error
+		return true;
+		
+	}
+	
 	
 	// Convert received bytes into a string
 	public static String unmarshal(byte[] data) {

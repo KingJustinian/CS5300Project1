@@ -68,8 +68,6 @@ public class MainServlet extends HttpServlet {
         	serverPort = rServer.getServerPort();
             new Thread(rServer).start();    
             
-            // Test RPCClient probe function
-            //System.out.println(RPCClient.probe(serverIP, serverPort));
         } catch (Exception e) {
         	e.printStackTrace();
         }
@@ -170,10 +168,18 @@ public class MainServlet extends HttpServlet {
 		System.out.println(curState.toString());
 		System.out.println(userCookie.getValue());
 		
-		// Code for testing sessionread in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
+		// Code for testing sessionRead in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
 		/*SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
 				curState.getVersionNumber(), serverIP, serverPort);
 		System.out.println("Test read state: " + testReadState.toString());*/
+		
+		// Code for testing sessionWrite and sessionDelete in RPC Client
+		/*String writeID = Integer.toString(last_sess_num) + "_" + serverIP + "_" + Integer.toString(serverPort);
+		SessionState testWriteState = new SessionState(last_sess_num++, serverIP, serverPort, 0, "Write Works!");
+		RPCClient.sessionWrite(testWriteState, serverIP, serverPort);
+		System.out.println(sessionData.get(writeID).toString());
+		RPCClient.sessionDelete(testWriteState.getSessionID(), testWriteState.getVersionNumber(), serverIP, serverPort);
+		if (sessionData.get(writeID) != null) System.out.println(sessionData.get(writeID).toString());*/
 		
 		
 		request.setAttribute("message", message);

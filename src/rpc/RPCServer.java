@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 
 import session.MainServlet;
@@ -58,12 +59,33 @@ public class RPCServer implements Runnable {
 					case RPCClient.SESSIONREAD_CODE:
 						retrievedSession = MainServlet.sessionData.get(sessionID);
 						// If the retrieved session is not null and is the correct version number, formulate the response
-						if (!(retrievedSession == null || retrievedSession.getVersionNumber() != Integer.parseInt(versionNum))) {
+						if (!(retrievedSession == null || retrievedSession.getVersionNumber() < Integer.parseInt(versionNum))) {
 							response = callID;
 							response += "^" + URLEncoder.encode(Integer.toString(retrievedSession.getVersionNumber()), "UTF-8");
 							response += "^" + URLEncoder.encode(retrievedSession.getMessage(), "UTF-8");
 							response += "^" + URLEncoder.encode(retrievedSession.getExpirationTime().toString(), "UTF-8");
 						}
+						break;
+						
+					case RPCClient.SESSIONWRITE_CODE:
+						String message = null;
+						String discard_time = null;
+						message = URLDecoder.decode(parseData[4], "UTF-8");
+						discard_time = parseData[5];
+						
+						// Create a new session and store it in the session state table
+						// It overwrites any old session contained, so "garbage collection" occurs automatically
+						retrievedSession = new SessionState(sessionID, Integer.parseInt(versionNum), message);
+						retrievedSession.setNewExpirationTime(discard_time);
+						MainServlet.sessionData.put(sessionID, retrievedSession);
+						response = callID;
+						
+						break;
+						
+					case RPCClient.SESSIONDELETE_CODE:
+						MainServlet.sessionData.remove(sessionID);
+						response = callID;
+						
 						break;
 				}
 				
