@@ -42,7 +42,7 @@ public class MainServlet extends HttpServlet {
 	protected static final SessionCleaner sessionCleaner = new SessionCleaner();
 	protected static final Timer cleanTimer = new Timer();
 	
-	public RPCServer rServer = new RPCServer(this);
+	public RPCServer rServer;
 	
     // Determine if a session exists already based on if the session ID stored is valid
 	private boolean invalidState(SessionState st) {
@@ -64,6 +64,7 @@ public class MainServlet extends HttpServlet {
         super();
         cleanTimer.schedule(sessionCleaner, cleanerInterval*1000, cleanerInterval*1000);
         try {
+        	rServer = new RPCServer(this);
         	serverIP = InetAddress.getLocalHost().getHostAddress();
         	serverPort = rServer.getServerPort();
             new Thread(rServer).start();    
@@ -97,6 +98,14 @@ public class MainServlet extends HttpServlet {
 			}
 		}
 
+		String command = request.getParameter("command");
+		
+		// Simulate a crash by telling the RPCServer to not respond to requests anymore
+		if (command != null && command.equals("Crash")) {
+			rServer.setRunning(false);
+			System.exit(0);
+		}
+		
 		// Create a new session if there wasn't a cookie
 		if (userCookie == null) {
 			userCookie = createSession(message);
@@ -122,7 +131,6 @@ public class MainServlet extends HttpServlet {
 			}
 		} 
 		
-		String command = request.getParameter("command");
 		// Update the session/cookie appropriately depending on the command (or lack of command if a returning user)
 		if (command != null) {
 			if (command.equals("LogOut")) {
@@ -169,9 +177,9 @@ public class MainServlet extends HttpServlet {
 		System.out.println(userCookie.getValue());
 		
 		// Code for testing sessionRead in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
-		/*SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
+		SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
 				curState.getVersionNumber(), serverIP, serverPort);
-		System.out.println("Test read state: " + testReadState.toString());*/
+		System.out.println("Test read state: " + testReadState.toString());
 		
 		// Code for testing sessionWrite and sessionDelete in RPC Client
 		/*String writeID = Integer.toString(last_sess_num) + "_" + serverIP + "_" + Integer.toString(serverPort);

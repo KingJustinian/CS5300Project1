@@ -13,7 +13,8 @@
     <input type="submit" name="command" value="Replace">
     <input type="text" name="replaceText" size=40 maxlength=512><br />
     <input type="submit" name="command" value="Refresh"><br />
-    <input type="submit" name="command" value="LogOut">
+    <input type="submit" name="command" value="LogOut"><br /><br />
+    <input type="submit" name="command" value="Crash">
   </form>
   <h3>Server ID executing the client request: <%= request.getAttribute("serverAddr") + ":" + request.getAttribute("serverPort") %></h3>
   <h3>Discard Time: <%= request.getAttribute("Discard_Time") %></h3>
