@@ -1,5 +1,7 @@
 package session;
 
+import groupMembership.Server;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetAddress;
@@ -27,8 +29,7 @@ import rpc.RPCServer;
 public class MainServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	
-	private String serverIP;
-	private int serverPort;
+	private Server thisServer;
 	
 	public static String IPP_NULL = "0.0.0.0";
 	
@@ -53,9 +54,10 @@ public class MainServlet extends HttpServlet {
 	private Cookie createSession(String message) {
 		int sID = last_sess_num++;
 		int version = 0;
-		SessionState st = new SessionState(sID, serverIP, serverPort, version, message);
+		SessionState st = new SessionState(sID, thisServer, version, message);
 		sessionData.put(st.getSessionID(), st);
-		return (new Cookie(cookieName, st.getSessionID() + "^" + version + "^" + serverIP + "_" + serverPort));
+		return (new Cookie(cookieName, st.getSessionID() + "^" + version + "^" + thisServer.ip.getHostAddress() 
+				+ "_" + thisServer.port));
 	}
 	
 
@@ -65,10 +67,8 @@ public class MainServlet extends HttpServlet {
         cleanTimer.schedule(sessionCleaner, cleanerInterval*1000, cleanerInterval*1000);
         try {
         	rServer = new RPCServer(this);
-        	serverIP = InetAddress.getLocalHost().getHostAddress();
-        	serverPort = rServer.getServerPort();
+        	thisServer = new Server(InetAddress.getLocalHost(), rServer.getServerPort());
             new Thread(rServer).start();    
-            
         } catch (Exception e) {
         	e.printStackTrace();
         }
@@ -145,7 +145,7 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber() 
-						+ "^" + serverIP + "_" + serverPort);
+						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			} else { // Refresh command
 				// Update the session data and cookie
@@ -153,7 +153,7 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
-						+ "^" + serverIP + "_" + serverPort);
+						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		} else {
@@ -166,7 +166,7 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				sessionData.put(sessionID, curState);
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
-						+ "^" + serverIP + "_" + serverPort);
+						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		}
@@ -177,26 +177,24 @@ public class MainServlet extends HttpServlet {
 		System.out.println(userCookie.getValue());
 		
 		// Code for testing sessionRead in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
-		SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
-				curState.getVersionNumber(), serverIP, serverPort);
-		System.out.println("Test read state: " + testReadState.toString());
+		/*SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
+				curState.getVersionNumber(), thisServer);
+		System.out.println("Test read state: " + testReadState.toString()); */
 		
 		// Code for testing sessionWrite and sessionDelete in RPC Client
-		/*String writeID = Integer.toString(last_sess_num) + "_" + serverIP + "_" + Integer.toString(serverPort);
-		SessionState testWriteState = new SessionState(last_sess_num++, serverIP, serverPort, 0, "Write Works!");
-		RPCClient.sessionWrite(testWriteState, serverIP, serverPort);
+		/*String writeID = Integer.toString(last_sess_num) + "_" + thisServer.ip.getHostAddress() + "_" + Integer.toString(thisServer.port);
+		SessionState testWriteState = new SessionState(last_sess_num++, thisServer, 0, "Write Works!");
+		RPCClient.sessionWrite(testWriteState, thisServer);
 		System.out.println(sessionData.get(writeID).toString());
-		RPCClient.sessionDelete(testWriteState.getSessionID(), testWriteState.getVersionNumber(), serverIP, serverPort);
+		RPCClient.sessionDelete(testWriteState.getSessionID(), testWriteState.getVersionNumber(), thisServer);
 		if (sessionData.get(writeID) != null) System.out.println(sessionData.get(writeID).toString());*/
 		
 		
 		request.setAttribute("message", message);
 		if (curState != null) request.setAttribute("Discard_Time", curState.getExpirationTime());
 		request.setAttribute("Expires", userCookie.getMaxAge());
-		//request.setAttribute("serverAddr", request.getLocalAddr());
-		//request.setAttribute("serverPort", request.getLocalPort());
-		request.setAttribute("serverAddr", serverIP);
-	    request.setAttribute("serverPort", serverPort);
+		request.setAttribute("serverAddr", thisServer.ip.getHostAddress());
+	    request.setAttribute("serverPort", thisServer.port);
 	    
 	    String[] tempP = userCookie.getValue().split("\\^")[2].split("_");
 	    String IPPPrimary = tempP[0] + ":" + tempP[1];
