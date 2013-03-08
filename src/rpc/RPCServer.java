@@ -14,6 +14,7 @@ import session.SessionState;
 public class RPCServer implements Runnable {
 	private DatagramSocket RPCSocket;
 	private int serverPort;
+	private MainServlet sessionManager;
 	
 	private boolean running = true;
 	
@@ -21,6 +22,7 @@ public class RPCServer implements Runnable {
 		try {
 			RPCSocket = new DatagramSocket();
 			serverPort = RPCSocket.getLocalPort();
+			sessionManager = sMain;
 		} catch (SocketException e) {
 			e.printStackTrace();
 		}
@@ -51,13 +53,14 @@ public class RPCServer implements Runnable {
 				SessionState retrievedSession;
 				
 				// Compute the response depending on the requested operation
+				sessionManager.writeLock.lock();
 				switch (operationCode) {
 					case RPCClient.PROBE_CODE:
 						response = callID;
 						break;
 						
 					case RPCClient.SESSIONREAD_CODE:
-						retrievedSession = MainServlet.sessionData.get(sessionID);
+						retrievedSession = sessionManager.sessionData.get(sessionID);
 						// If the retrieved session is not null and is the correct version number, formulate the response
 						if (!(retrievedSession == null || retrievedSession.getVersionNumber() < Integer.parseInt(versionNum))) {
 							response = callID;
@@ -77,18 +80,18 @@ public class RPCServer implements Runnable {
 						// It overwrites any old session contained, so "garbage collection" occurs automatically
 						retrievedSession = new SessionState(sessionID, Integer.parseInt(versionNum), message);
 						retrievedSession.setNewExpirationTime(discard_time);
-						MainServlet.sessionData.put(sessionID, retrievedSession);
+						sessionManager.sessionData.put(sessionID, retrievedSession);
 						response = callID;
 						
 						break;
 						
 					case RPCClient.SESSIONDELETE_CODE:
-						MainServlet.sessionData.remove(sessionID);
+						sessionManager.sessionData.remove(sessionID);
 						response = callID;
 						
 						break;
 				}
-				
+				sessionManager.writeLock.unlock();
 				
 				// Send the response
 				byte[] outBuffer = new byte[4096];

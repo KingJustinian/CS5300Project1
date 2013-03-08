@@ -8,12 +8,19 @@ import java.sql.Timestamp;
 
 public class SessionCleaner extends TimerTask {
 
+	private MainServlet sessionManager;
+	
+	public SessionCleaner(MainServlet sMain) {
+		sessionManager = sMain;
+	}
+	
 	@Override
 	public void run() {
 		Timestamp now = new Timestamp(new Date().getTime());
 		
-		ConcurrentHashMap<String, SessionState> timerHash = MainServlet.sessionData;
+		ConcurrentHashMap<String, SessionState> timerHash = sessionManager.sessionData;
 		
+		sessionManager.writeLock.lock();		
 		for(Enumeration<String> i = timerHash.keys(); i.hasMoreElements();) {
 			String key = i.nextElement();
 			SessionState val = timerHash.get(key);
@@ -22,6 +29,7 @@ public class SessionCleaner extends TimerTask {
 				System.out.println("Remove" + key);
 			}
 		}
+		sessionManager.writeLock.unlock();
 		System.out.println("Cleaner is running.");
 	}
 
