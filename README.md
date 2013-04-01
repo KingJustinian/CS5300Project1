@@ -19,16 +19,20 @@ The cookies contain the session ID, version number, IPPprimary, and IPPbackup, w
 the values so that it can be parsed easily. 
 
 Overview of structure:
-*Session Package
-***MainServlet.java (contains the hashmap which stores session states and utilizes all of the other classes)
-***SessionCleaner.java (performs garbage collection)
-***SessionState.java (stores information about a session)
-*groupMembership Package
-***Server.java (stores IP/Port information for a server)
-***GroupMemberManager.java (Stores a set of servers, the group membership)
-*rpc Package
-***RPC Client (SessionRead, SessionWrite, SessionDelete methods which are sent to a RPC server)
-***RPC Server (Determine what method the RPC Client asked for and perform the necessary action/send data back)
+
+Session Package:
+MainServlet.java (contains the hashmap which stores session states and utilizes all of the other classes)
+SessionCleaner.java (performs garbage collection)
+SessionState.java (stores information about a session)
+
+groupMembership Package:
+Server.java (stores IP/Port information for a server)
+GroupMemberManager.java (Stores a set of servers, the group membership)
+
+rpc Package:
+RPC Client (SessionRead, SessionWrite, SessionDelete methods which are sent to a RPC server)
+RPC Server (Determine what method the RPC Client asked for and perform the necessary action/send data back)
+
 In Webcontent, index.jsp displays information for the page.
 
 For testing on elastic beanstalk I used the Eclipse plugin and simply had to right click on the AWS Elastic
