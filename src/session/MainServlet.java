@@ -71,8 +71,9 @@ public class MainServlet extends HttpServlet {
 		SessionState st = new SessionState(sID, thisServer, version, message);
 		writeLock.lock();
 		sessionData.put(st.getSessionID(), st);
-		String ippB = sessionWrite(st, null);
 		writeLock.unlock();
+		
+		String ippB = sessionWrite(st, null);
 			
 		return (new Cookie(cookieName, st.getSessionID() + "^" + version + "^" + thisServer.ip.getHostAddress() 
 				+ ":" + thisServer.port +"^"+ ippB));
@@ -161,18 +162,10 @@ public class MainServlet extends HttpServlet {
     private String sessionWrite(SessionState session, String cookie_vals) throws NumberFormatException, UnknownHostException{
     	String ippB = IPP_NULL;
     	String thisIPP = thisServer.ip.getHostAddress() + thisServer.port;
-    	System.out.println(session.getSessionID());
-    	System.out.println(session.getVersionNumber());
-    	System.out.println(session.getMessage());
     	
     	boolean result = false;
     	
     	if(cookie_vals != null && !cookie_vals.split("\\^")[2].equals(thisIPP)){
-    		System.out.println(thisIPP);
-    		System.out.println(cookie_vals.split("\\^")[0]);
-    		System.out.println(cookie_vals.split("\\^")[1]);
-    		System.out.println(cookie_vals.split("\\^")[2]);
-    		System.out.println("AHFJDSLA");
     		Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
     		result = RPCClient.sessionWrite(session, tempP);
@@ -187,9 +180,6 @@ public class MainServlet extends HttpServlet {
     	if(!result && cookie_vals != null && !cookie_vals.split("\\^")[3].equals(thisIPP)){
     		Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
-        	System.out.println("HERE");
-    		System.out.println(tempB.toString());
-    		System.out.println("HERE");
     		result = RPCClient.sessionWrite(session, tempB);
     		if(result){
     			gm.addMember(tempB);
@@ -303,8 +293,8 @@ public class MainServlet extends HttpServlet {
 				if (userCookie != null) {
 					writeLock.lock();
 					sessionData.remove(sessionID);
-					sessionDelete(userCookie.getValue());
 					writeLock.unlock();
+					sessionDelete(userCookie.getValue());
 					userCookie.setMaxAge(0);
 				}
 			} else if (command.equals("Replace")) {
@@ -314,8 +304,11 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();
 				sessionData.put(sessionID, curState);
-				String ippB = sessionWrite(curState, userCookie.getValue());
 				writeLock.unlock();
+				System.out.println(curState.getSessionID());
+				System.out.println(curState.getVersionNumber());
+				System.out.println(curState.getMessage());
+				String ippB = sessionWrite(curState, userCookie.getValue());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber() 
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
@@ -325,11 +318,11 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();
 				sessionData.put(sessionID, curState);
-				String ippB = sessionWrite(curState, userCookie.getValue());
-				System.out.println("HERE!");
-				System.out.println(userCookie.getValue());
-				System.out.println("HERE!");
 				writeLock.unlock();
+				String ippB = sessionWrite(curState, userCookie.getValue());
+				System.out.println(curState.getSessionID());
+				System.out.println(curState.getVersionNumber());
+				System.out.println(curState.getMessage());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
@@ -344,8 +337,10 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();				
 				sessionData.put(sessionID, curState);
-				String ippB = sessionWrite(curState, userCookie.getValue());
 				writeLock.unlock();
+				String ippB = sessionWrite(curState, userCookie.getValue());
+				System.out.println(curState.getSessionID());
+				System.out.println(curState.getVersionNumber());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^" + ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
