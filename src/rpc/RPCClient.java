@@ -95,6 +95,7 @@ public class RPCClient {
 					RPCSocket.receive(receivedPacket);
 					response = RPCClient.unmarshal(inBuffer);
 					
+					System.out.println(response);
 					// Parse the response into a SessionState
 					String[] responseSplit = response.split("\\^");
 					session = new SessionState(sessionID, versionNum, null);
@@ -128,7 +129,7 @@ public class RPCClient {
 					+ "^" + URLEncoder.encode(session.getMessage(), "UTF-8") + "^" + session.getExpirationTime().toString();
 			byte[] outBuffer = marshal(tempSend);
 			DatagramPacket sendPacket = new DatagramPacket(outBuffer, outBuffer.length, server.ip, server.port);
-
+			
 			RPCSocket.send(sendPacket);
 			
 			// The packet has been sent, now wait for the server to reply

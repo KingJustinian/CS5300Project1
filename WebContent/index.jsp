@@ -21,5 +21,8 @@
   <h3>Expiration Time: <%= request.getAttribute("Expires") %></h3>
   <h3>Version Number: <%= request.getAttribute("vNum") %></h3>
   <h3>IPP Primary: <%= request.getAttribute("IPPPrimary") %></h3>
+  <h3>IPP Backup: <%= request.getAttribute("IPPBackup") %></h3>
+  <h3>Data from: <%= request.getAttribute("found") %></h3>
+  <h3>MemberSet: <%= request.getAttribute("mbrList") %></h3>
 </body>
 </html>

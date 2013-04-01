@@ -17,10 +17,24 @@ public class GroupMemberManager {
 		MemberSet.add(s);
 	}
 	
+	public boolean serverCheck(Server s){
+		boolean result = true;
+		int size = numServers();
+		if(size !=0){
+			for(Server i: MemberSet) {
+				if(s.equals(i)){
+					result = false;
+				}
+			}
+		}
+		return result;
+	}
+	
 	public void removeMember(Server s) {
 		int size = numServers();
 		if(size != 0){
 			for(Server i : MemberSet) {
+				System.out.println(s.equals(i));
 				if(s.equals(i)){
 					MemberSet.remove(i);
 				}

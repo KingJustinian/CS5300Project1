@@ -6,7 +6,9 @@ import groupMembership.GroupMemberManager;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Timer;
 import java.util.Set;
 import java.util.HashSet;
@@ -161,29 +163,38 @@ public class MainServlet extends HttpServlet {
     
     private String sessionWrite(SessionState session, String cookie_vals) throws NumberFormatException, UnknownHostException{
     	String ippB = IPP_NULL;
-    	String thisIPP = thisServer.ip.getHostAddress() + thisServer.port;
+    	String thisIPP = thisServer.ip.getHostAddress() + ":" + thisServer.port;
     	
     	boolean result = false;
     	
     	if(cookie_vals != null && !cookie_vals.split("\\^")[2].equals(thisIPP)){
+    		//System.out.println(cookie_vals.split("\\^")[2]);
+    		//System.out.println(thisIPP);
     		Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
     		result = RPCClient.sessionWrite(session, tempP);
     		if(result){
-    			gm.addMember(tempP);
-    			ippB = cookie_vals.split("\\^")[2];
+    			if(gm.serverCheck(tempP)){
+    				//System.out.println("HERE1");
+	    			gm.addMember(tempP);
+	    			ippB = cookie_vals.split("\\^")[2];
+    			}
     		} else {
     			gm.removeMember(tempP);
     		}
     	}
     	
-    	if(!result && cookie_vals != null && !cookie_vals.split("\\^")[3].equals(thisIPP)){
+    	if(!result && cookie_vals != null && !cookie_vals.split("\\^")[3].equals(thisIPP) && !cookie_vals.split("\\^")[3].equals(IPP_NULL)){
     		Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
+    		//System.out.println(tempB.toString());
     		result = RPCClient.sessionWrite(session, tempB);
     		if(result){
-    			gm.addMember(tempB);
-    			ippB = cookie_vals.split("\\^")[3];
+    			if(gm.serverCheck(tempB)){
+	    			gm.addMember(tempB);
+	    			//System.out.println("HERE2");
+	    			ippB = cookie_vals.split("\\^")[3];
+    			}
     		} else { 
     			gm.removeMember(tempB);
     		}
@@ -207,8 +218,10 @@ public class MainServlet extends HttpServlet {
     		while(i < tempSet.length && !result){
     			result = RPCClient.sessionWrite(session, tempSet[i]);
     			if(result){
-    				ippB = tempSet[i].toString();
-    				gm.addMember(tempSet[i]);
+    				if(gm.serverCheck(tempSet[i])){
+	    				ippB = tempSet[i].toString();
+	    				gm.addMember(tempSet[i]);
+    				}
     				break;
     			} else {
     				gm.removeMember(tempSet[i]);
@@ -217,12 +230,12 @@ public class MainServlet extends HttpServlet {
     		}
     	}
     	
-    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[2])){
+    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[2]) && !ippB.equals(IPP_NULL)){
 			Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
     		RPCClient.sessionDelete(session.getSessionID(), session.getVersionNumber()-1, tempP);
     	}
-    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[2])){
+    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[3]) && !ippB.equals(IPP_NULL)){
 			Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
     				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
     		RPCClient.sessionDelete(session.getSessionID(), session.getVersionNumber()-1, tempB);
@@ -252,6 +265,7 @@ public class MainServlet extends HttpServlet {
 				}
 			}
 		}
+		request.setAttribute("found", "CACHE");
 
 		String command = request.getParameter("command");
 		
@@ -268,22 +282,30 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
-			request.setAttribute("found", "");
+			request.setAttribute("found", "CACHE");
 		} else { // Else get the session from the cookie, if it exists
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
+			//System.out.println("HALLO!");
+			//System.out.println(curState.getSessionID());
+			//System.out.println(curState.getVersionNumber());
+			//System.out.println(curState.getMessage());
+			//System.out.println("HALLO!");
 			previousUser = true;
 			// The case when a cookie exists for a session but when the session identified doesn't
 			// exist in the HashMap (i.e. restarting the program when and the client still has
 			// a cookie from before. Or if the session has expired
 			if (invalidState(curState)) { 
-				userCookie = createSession(message);
-				userCookie.setMaxAge(SESSION_TIMEOUT_SECS); 
-				String temp2[] = userCookie.getValue().split("\\^");
-				sessionID = temp2[0];
-				curState = sessionData.get(sessionID);
-				previousUser = false;
+				curState = sessionRead(userCookie.getValue(), request);
+				if(invalidState(curState)){
+					userCookie = createSession(message);
+					userCookie.setMaxAge(SESSION_TIMEOUT_SECS); 
+					String temp2[] = userCookie.getValue().split("\\^");
+					sessionID = temp2[0];
+					curState = sessionData.get(sessionID);
+					previousUser = false;
+				}
 			}
 		} 
 		
@@ -305,9 +327,9 @@ public class MainServlet extends HttpServlet {
 				writeLock.lock();
 				sessionData.put(sessionID, curState);
 				writeLock.unlock();
-				System.out.println(curState.getSessionID());
-				System.out.println(curState.getVersionNumber());
-				System.out.println(curState.getMessage());
+				//System.out.println(curState.getSessionID());
+				//System.out.println(curState.getVersionNumber());
+				//System.out.println(curState.getMessage());
 				String ippB = sessionWrite(curState, userCookie.getValue());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber() 
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
@@ -320,9 +342,9 @@ public class MainServlet extends HttpServlet {
 				sessionData.put(sessionID, curState);
 				writeLock.unlock();
 				String ippB = sessionWrite(curState, userCookie.getValue());
-				System.out.println(curState.getSessionID());
-				System.out.println(curState.getVersionNumber());
-				System.out.println(curState.getMessage());
+				//System.out.println(curState.getSessionID());
+				//System.out.println(curState.getVersionNumber());
+				//System.out.println(curState.getMessage());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
@@ -339,8 +361,8 @@ public class MainServlet extends HttpServlet {
 				sessionData.put(sessionID, curState);
 				writeLock.unlock();
 				String ippB = sessionWrite(curState, userCookie.getValue());
-				System.out.println(curState.getSessionID());
-				System.out.println(curState.getVersionNumber());
+				//System.out.println(curState.getSessionID());
+				//System.out.println(curState.getVersionNumber());
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
 						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^" + ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
@@ -370,11 +392,20 @@ public class MainServlet extends HttpServlet {
 	    request.setAttribute("serverPort", thisServer.port);
 	    
 	    Set<Server> set = gm.getMemberSet();
-	    request.setAttribute("mbrSet", set);
+	    String mbrList = "";
+	    Iterator<Server> it = set.iterator();
+	    while(it.hasNext()){
+	    	Server temp = it.next();
+	    	mbrList = mbrList + " " + temp.toString();
+	    }
+	    request.setAttribute("mbrList", mbrList);
 	    
 	    String[] tempP = userCookie.getValue().split("\\^")[2].split(":");
 	    String IPPPrimary = tempP[0] + ":" + tempP[1];
+	    String[] tempB = userCookie.getValue().split("\\^")[3].split(":");
+	    String IPPBackup = tempB[0] + ":" + tempB[1];
 	    request.setAttribute("IPPPrimary", IPPPrimary);
+	    request.setAttribute("IPPBackup", IPPBackup);
 		request.setAttribute("vNum", curState.getVersionNumber());
 		
 		if (userCookie != null) response.addCookie(userCookie);
