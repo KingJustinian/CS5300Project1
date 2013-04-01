@@ -17,6 +17,17 @@ public class GroupMemberManager {
 		MemberSet.add(s);
 	}
 	
+	public void removeMember(Server s) {
+		int size = numServers();
+		if(size != 0){
+			for(Server i : MemberSet) {
+				if(s.equals(i)){
+					MemberSet.remove(i);
+				}
+			}
+		}
+	}
+	
 	// Returns a single server from the member set randomly
 	public Server getRandServer() {
 		int size = numServers();

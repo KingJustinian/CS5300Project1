@@ -1,11 +1,15 @@
 package session;
 
 import groupMembership.Server;
+import groupMembership.GroupMemberManager;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.Timer;
+import java.util.Set;
+import java.util.HashSet;
 import java.sql.Timestamp;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -17,6 +21,8 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+
 
 import rpc.RPCClient;
 import rpc.RPCServer;
@@ -31,7 +37,10 @@ public class MainServlet extends HttpServlet {
 	
 	private Server thisServer;
 	
-	public static String IPP_NULL = "0.0.0.0";
+	public GroupMemberManager gm;
+	
+	public static String IP_NULL ="0.0.0.0";
+	public static String IPP_NULL = "0.0.0.0:0";
 	
 	private int last_sess_num = 0;
 	
@@ -56,15 +65,17 @@ public class MainServlet extends HttpServlet {
 	}
 	
 	// Create a new session in the HashMap and return a cookie with the sessionID and version number
-	private Cookie createSession(String message) {
+	private Cookie createSession(String message) throws NumberFormatException, UnknownHostException {
 		int sID = last_sess_num++;
 		int version = 0;
 		SessionState st = new SessionState(sID, thisServer, version, message);
 		writeLock.lock();
 		sessionData.put(st.getSessionID(), st);
+		String ippB = sessionWrite(st, null);
 		writeLock.unlock();
+			
 		return (new Cookie(cookieName, st.getSessionID() + "^" + version + "^" + thisServer.ip.getHostAddress() 
-				+ "_" + thisServer.port));
+				+ ":" + thisServer.port +"^"+ ippB));
 	}
 	
 
@@ -76,11 +87,158 @@ public class MainServlet extends HttpServlet {
         	rServer = new RPCServer(this);
         	thisServer = new Server(InetAddress.getLocalHost(), rServer.getServerPort());
             new Thread(rServer).start();    
+            gm = new GroupMemberManager(thisServer);
         } catch (Exception e) {
         	e.printStackTrace();
         }
-
-
+    }
+    
+    private SessionState sessionRead(String cookie_vals, HttpServletRequest req){
+    	SessionState state = null;
+    	
+    	String[] sTemp = cookie_vals.split("\\^");
+    	String sID = sTemp[0];
+    	int ver = Integer.parseInt(sTemp[1]);
+    	String ipP = sTemp[2].split(":")[0];
+    	int portP = Integer.parseInt(sTemp[2].split(":")[1]);
+    	String ipB = sTemp[3].split(":")[0];
+    	int portB = Integer.parseInt(sTemp[3].split(":")[1]);
+    	
+    	if(!ipP.equals(IP_NULL)){
+    		try {
+				state = RPCClient.sessionRead(sID, ver, new Server(InetAddress.getByName(ipP), portP));
+			} catch (UnknownHostException e) {
+				System.out.println("Primary IP could not be resolved");
+				e.printStackTrace();
+			}
+    		if(state == null && !ipB.equals(IP_NULL)){
+    			try {
+					state = RPCClient.sessionRead(sID,  ver, new Server(InetAddress.getByName(ipB), portB));
+					if(state != null){
+						req.setAttribute("found", "IPPBackup");
+					}
+				} catch (UnknownHostException e) {
+					System.out.println("Secondary IP could not be resolved");
+					e.printStackTrace();
+				}
+    		} else {
+    			req.setAttribute("found", "IPPPrimary");
+    		}
+    	} if(state == null){
+    		System.out.println("State not retrieved");
+    	}
+    	return state;
+    }
+    
+    private void sessionDelete(String cookie_vals){
+    	String[] sTemp = cookie_vals.split("\\^");
+    	String sID = sTemp[0];
+    	int ver = Integer.parseInt(sTemp[1]);
+    	String ipP = sTemp[2].split(":")[0];
+    	int portP = Integer.parseInt(sTemp[2].split(":")[1]);
+    	String ipB = sTemp[3].split(":")[0];
+    	int portB = Integer.parseInt(sTemp[3].split(":")[1]);
+    	
+    	if(!ipP.equals(IP_NULL)){
+    		try {
+				RPCClient.sessionDelete(sID, ver, new Server(InetAddress.getByName(ipP), portP));
+			} catch (UnknownHostException e) {
+				System.out.println("Primary Server delete failed");
+				e.printStackTrace();
+			}
+    	};
+    	
+    	if(!ipP.equals(IP_NULL)){
+    		try {
+				RPCClient.sessionDelete(sID, ver, new Server(InetAddress.getByName(ipP), portP));
+			} catch (UnknownHostException e) {
+				System.out.println("Backup Server delete failed");
+				e.printStackTrace();
+			}
+    	};
+    }
+    
+    private String sessionWrite(SessionState session, String cookie_vals) throws NumberFormatException, UnknownHostException{
+    	String ippB = IPP_NULL;
+    	String thisIPP = thisServer.ip.getHostAddress() + thisServer.port;
+    	System.out.println(session.getSessionID());
+    	System.out.println(session.getVersionNumber());
+    	System.out.println(session.getMessage());
+    	
+    	boolean result = false;
+    	
+    	if(cookie_vals != null && !cookie_vals.split("\\^")[2].equals(thisIPP)){
+    		System.out.println(thisIPP);
+    		System.out.println(cookie_vals.split("\\^")[0]);
+    		System.out.println(cookie_vals.split("\\^")[1]);
+    		System.out.println(cookie_vals.split("\\^")[2]);
+    		System.out.println("AHFJDSLA");
+    		Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
+    				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
+    		result = RPCClient.sessionWrite(session, tempP);
+    		if(result){
+    			gm.addMember(tempP);
+    			ippB = cookie_vals.split("\\^")[2];
+    		} else {
+    			gm.removeMember(tempP);
+    		}
+    	}
+    	
+    	if(!result && cookie_vals != null && !cookie_vals.split("\\^")[3].equals(thisIPP)){
+    		Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
+    				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
+        	System.out.println("HERE");
+    		System.out.println(tempB.toString());
+    		System.out.println("HERE");
+    		result = RPCClient.sessionWrite(session, tempB);
+    		if(result){
+    			gm.addMember(tempB);
+    			ippB = cookie_vals.split("\\^")[3];
+    		} else { 
+    			gm.removeMember(tempB);
+    		}
+    	}
+    	
+    	if(!result){
+    		Set<Server> mbrSet = gm.getMemberSet();
+    		mbrSet.remove(thisServer);
+    		if(cookie_vals != null){
+    			Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
+        				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
+    			Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
+        				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
+    			mbrSet.remove(tempP);
+    			mbrSet.remove(tempB);
+    		}
+    		
+    		int i = 0;
+    		Server[] tempSet = mbrSet.toArray(new Server[0]);
+    		
+    		while(i < tempSet.length && !result){
+    			result = RPCClient.sessionWrite(session, tempSet[i]);
+    			if(result){
+    				ippB = tempSet[i].toString();
+    				gm.addMember(tempSet[i]);
+    				break;
+    			} else {
+    				gm.removeMember(tempSet[i]);
+    			}
+    			i++;
+    		}
+    	}
+    	
+    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[2])){
+			Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
+    				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
+    		RPCClient.sessionDelete(session.getSessionID(), session.getVersionNumber()-1, tempP);
+    	}
+    	if(cookie_vals != null && !ippB.equals(cookie_vals.split("\\^")[2])){
+			Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
+    				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
+    		RPCClient.sessionDelete(session.getSessionID(), session.getVersionNumber()-1, tempB);
+    	}
+    	
+    	return ippB;
     }
 
 	/**
@@ -120,6 +278,7 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
+			request.setAttribute("found", "");
 		} else { // Else get the session from the cookie, if it exists
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
@@ -144,6 +303,7 @@ public class MainServlet extends HttpServlet {
 				if (userCookie != null) {
 					writeLock.lock();
 					sessionData.remove(sessionID);
+					sessionDelete(userCookie.getValue());
 					writeLock.unlock();
 					userCookie.setMaxAge(0);
 				}
@@ -154,9 +314,10 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();
 				sessionData.put(sessionID, curState);
+				String ippB = sessionWrite(curState, userCookie.getValue());
 				writeLock.unlock();
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber() 
-						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
+						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			} else { // Refresh command
 				// Update the session data and cookie
@@ -164,9 +325,13 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();
 				sessionData.put(sessionID, curState);
+				String ippB = sessionWrite(curState, userCookie.getValue());
+				System.out.println("HERE!");
+				System.out.println(userCookie.getValue());
+				System.out.println("HERE!");
 				writeLock.unlock();
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
-						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
+						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^"+ ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		} else {
@@ -179,17 +344,15 @@ public class MainServlet extends HttpServlet {
 				curState.setNewExpirationTime();
 				writeLock.lock();				
 				sessionData.put(sessionID, curState);
+				String ippB = sessionWrite(curState, userCookie.getValue());
 				writeLock.unlock();
 				userCookie = new Cookie(cookieName, sessionID + "^" + curState.getVersionNumber()
-						+ "^" + thisServer.ip.getHostAddress() + "_" + thisServer.port);
+						+ "^" + thisServer.ip.getHostAddress() + ":" + thisServer.port + "^" + ippB);
 				userCookie.setMaxAge(SESSION_TIMEOUT_SECS);
 			}
 		}
 	
 		message = curState.getMessage();
-		
-		System.out.println(curState.toString());
-		System.out.println(userCookie.getValue());
 		
 		// Code for testing sessionRead in RPC Client NOTE: ERROR IF LOGOUT IS USED WHEN THIS CODE IS UNCOMMENTED
 		/*SessionState testReadState = RPCClient.sessionRead(curState.getSessionID(), 
@@ -211,7 +374,10 @@ public class MainServlet extends HttpServlet {
 		request.setAttribute("serverAddr", thisServer.ip.getHostAddress());
 	    request.setAttribute("serverPort", thisServer.port);
 	    
-	    String[] tempP = userCookie.getValue().split("\\^")[2].split("_");
+	    Set<Server> set = gm.getMemberSet();
+	    request.setAttribute("mbrSet", set);
+	    
+	    String[] tempP = userCookie.getValue().split("\\^")[2].split(":");
 	    String IPPPrimary = tempP[0] + ":" + tempP[1];
 	    request.setAttribute("IPPPrimary", IPPPrimary);
 		request.setAttribute("vNum", curState.getVersionNumber());
