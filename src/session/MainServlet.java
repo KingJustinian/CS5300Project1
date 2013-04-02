@@ -174,11 +174,9 @@ public class MainServlet extends HttpServlet {
     				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
     		result = RPCClient.sessionWrite(session, tempP);
     		if(result){
-    			if(gm.serverCheck(tempP)){
     				//System.out.println("HERE1");
 	    			gm.addMember(tempP);
 	    			ippB = cookie_vals.split("\\^")[2];
-    			}
     		} else {
     			gm.removeMember(tempP);
     		}
@@ -190,38 +188,33 @@ public class MainServlet extends HttpServlet {
     		//System.out.println(tempB.toString());
     		result = RPCClient.sessionWrite(session, tempB);
     		if(result){
-    			if(gm.serverCheck(tempB)){
-	    			gm.addMember(tempB);
-	    			//System.out.println("HERE2");
-	    			ippB = cookie_vals.split("\\^")[3];
-    			}
+    			gm.addMember(tempB);
+    			//System.out.println("HERE2");
+    			ippB = cookie_vals.split("\\^")[3];
     		} else { 
     			gm.removeMember(tempB);
     		}
     	}
     	
     	if(!result){
-    		Set<Server> mbrSet = gm.getMemberSet();
-    		mbrSet.remove(thisServer);
+    		gm.removeMember(thisServer);
     		if(cookie_vals != null){
     			Server tempP = new Server(InetAddress.getByName(cookie_vals.split("\\^")[2].split(":")[0]),
         				Integer.parseInt(cookie_vals.split("\\^")[2].split(":")[1]));
     			Server tempB = new Server(InetAddress.getByName(cookie_vals.split("\\^")[3].split(":")[0]),
         				Integer.parseInt(cookie_vals.split("\\^")[3].split(":")[1]));
-    			mbrSet.remove(tempP);
-    			mbrSet.remove(tempB);
+    			gm.removeMember(tempP);
+    			gm.removeMember(tempB);
     		}
     		
     		int i = 0;
-    		Server[] tempSet = mbrSet.toArray(new Server[0]);
+    		Server[] tempSet = gm.getMemberSet().toArray(new Server[0]);
     		
     		while(i < tempSet.length && !result){
     			result = RPCClient.sessionWrite(session, tempSet[i]);
     			if(result){
-    				if(gm.serverCheck(tempSet[i])){
-	    				ippB = tempSet[i].toString();
-	    				gm.addMember(tempSet[i]);
-    				}
+    				ippB = tempSet[i].toString();
+    				gm.addMember(tempSet[i]);
     				break;
     			} else {
     				gm.removeMember(tempSet[i]);
@@ -265,7 +258,7 @@ public class MainServlet extends HttpServlet {
 				}
 			}
 		}
-		request.setAttribute("found", "CACHE");
+		request.setAttribute("found", "IPPPrimary");
 
 		String command = request.getParameter("command");
 		
@@ -282,7 +275,7 @@ public class MainServlet extends HttpServlet {
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
 			curState = sessionData.get(sessionID);
-			request.setAttribute("found", "CACHE");
+			request.setAttribute("found", "IPPPrimary");
 		} else { // Else get the session from the cookie, if it exists
 			String temp[] = userCookie.getValue().split("\\^");
 			sessionID = temp[0];
@@ -395,9 +388,12 @@ public class MainServlet extends HttpServlet {
 	    String mbrList = "";
 	    Iterator<Server> it = set.iterator();
 	    while(it.hasNext()){
+	    	System.out.println(mbrList);
 	    	Server temp = it.next();
 	    	mbrList = mbrList + " " + temp.toString();
 	    }
+	    System.out.println("HERE!");
+	    System.out.println(mbrList);
 	    request.setAttribute("mbrList", mbrList);
 	    
 	    String[] tempP = userCookie.getValue().split("\\^")[2].split(":");

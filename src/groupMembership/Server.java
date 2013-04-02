@@ -26,7 +26,7 @@ public class Server {
 	}
 	
 	public boolean equals(Server s2) {
-		return ((ip == s2.ip) && (port == s2.port));
+		return ((ip.equals(s2.ip)) && (port == s2.port));
 	}
 
 }

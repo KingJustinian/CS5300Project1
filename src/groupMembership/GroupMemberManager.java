@@ -14,7 +14,10 @@ public class GroupMemberManager {
 	}
 
 	public void addMember(Server s) {
-		MemberSet.add(s);
+		System.out.println(s);
+		if(serverCheck(s)){
+			MemberSet.add(s);
+		}
 	}
 	
 	public boolean serverCheck(Server s){
@@ -22,6 +25,7 @@ public class GroupMemberManager {
 		int size = numServers();
 		if(size !=0){
 			for(Server i: MemberSet) {
+				System.out.println(s.equals(i));
 				if(s.equals(i)){
 					result = false;
 				}
